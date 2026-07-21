@@ -1,222 +1,127 @@
-import { CHARACTERS, getCharacter, ITEM_ICONS, ordinal, formatTime } from './characters.js';
-
-export class InputController {
-  constructor(onPause) {
-    this.left = false;
-    this.right = false;
-    this.accelerate = false;
-    this.brake = false;
-    this.drift = false;
-    this.itemQueued = false;
-    this.autoAccelerate = matchMedia('(pointer: coarse)').matches;
-    this.bindKeyboard(onPause);
-    this.bindHold('steer-left', (active) => { this.left = active; });
-    this.bindHold('steer-right', (active) => { this.right = active; });
-    this.bindHold('drift-button', (active) => { this.drift = active; });
-    const itemButton = document.querySelector('#item-button');
-    itemButton?.addEventListener('pointerdown', (event) => {
-      event.preventDefault();
-      this.itemQueued = true;
-      itemButton.classList.add('active');
-    });
-    const release = () => itemButton?.classList.remove('active');
-    itemButton?.addEventListener('pointerup', release);
-    itemButton?.addEventListener('pointercancel', release);
-    document.querySelector('#pause-button')?.addEventListener('click', onPause);
-  }
-
-  sample() {
-    const steer = this.left === this.right ? 0 : this.left ? -1 : 1;
-    const result = {
-      steer,
-      throttle: this.autoAccelerate ? 1 : this.accelerate ? 1 : 0,
-      brake: this.brake ? 1 : 0,
-      drift: this.drift,
-      useItem: this.itemQueued,
-    };
-    this.itemQueued = false;
-    return result;
-  }
-
-  reset() {
-    this.left = this.right = this.accelerate = this.brake = this.drift = this.itemQueued = false;
-    document.querySelectorAll('.touch-button.active').forEach((button) => button.classList.remove('active'));
-  }
-
-  bindKeyboard(onPause) {
-    const setKey = (key, active) => {
-      if (['ArrowLeft', 'a', 'A'].includes(key)) this.left = active;
-      else if (['ArrowRight', 'd', 'D'].includes(key)) this.right = active;
-      else if (['ArrowUp', 'w', 'W'].includes(key)) this.accelerate = active;
-      else if (['ArrowDown', 's', 'S'].includes(key)) this.brake = active;
-      else if (key === 'Shift') this.drift = active;
-      else if (key === ' ') { if (active) this.itemQueued = true; }
-      else return false;
-      return true;
-    };
-    addEventListener('keydown', (event) => {
-      if (['Escape', 'p', 'P'].includes(event.key)) {
-        if (!event.repeat) onPause();
-        event.preventDefault();
-      } else if (setKey(event.key, true)) event.preventDefault();
-    });
-    addEventListener('keyup', (event) => { if (setKey(event.key, false)) event.preventDefault(); });
-    addEventListener('blur', () => this.reset());
-  }
-
-  bindHold(id, setter) {
-    const button = document.querySelector(`#${id}`);
-    if (!button) return;
-    const down = (event) => {
-      event.preventDefault();
-      setter(true);
-      button.classList.add('active');
-      try { button.setPointerCapture(event.pointerId); } catch {}
-    };
-    const up = (event) => {
-      event.preventDefault();
-      setter(false);
-      button.classList.remove('active');
-    };
-    button.addEventListener('pointerdown', down);
-    button.addEventListener('pointerup', up);
-    button.addEventListener('pointercancel', up);
-    button.addEventListener('lostpointercapture', up);
-  }
-}
-
-export class GameUI {
-  constructor(root, events) {
-    this.root = root;
-    this.events = events;
-    this.selectedCharacterId = 'byte';
-    this.messageTimer = 0;
-    root.innerHTML = this.template();
-    this.renderCharacters();
-    this.bindEvents();
-    this.showMenu();
-  }
-
-  element(id) {
-    const element = this.root.querySelector(`#${id}`);
-    if (!element) throw new Error(`Falta el elemento #${id}`);
-    return element;
-  }
-
-  hideScreens() {
-    this.root.querySelectorAll('.screen').forEach((screen) => screen.classList.add('hidden'));
-  }
-
-  showMenu() {
-    this.hideScreens();
-    this.element('menu-screen').classList.remove('hidden');
-    for (const id of ['hud', 'mobile-controls', 'item-slot', 'race-board']) this.element(id).classList.add('hidden');
-    this.element('countdown').textContent = '';
-  }
-
-  showRace() {
-    this.hideScreens();
-    for (const id of ['hud', 'mobile-controls', 'item-slot', 'race-board']) this.element(id).classList.remove('hidden');
-  }
-
-  showPause() { this.element('pause-screen').classList.remove('hidden'); }
-  hidePause() { this.element('pause-screen').classList.add('hidden'); }
-  showCountdown(value) { this.element('countdown').textContent = value; }
-
-  showMessage(text, duration = 1.2) {
-    const message = this.element('message');
-    message.textContent = text;
-    message.classList.add('show');
-    clearTimeout(this.messageTimer);
-    this.messageTimer = setTimeout(() => message.classList.remove('show'), duration * 1000);
-  }
-
-  updateHUD(completedLaps, totalLaps, position, speed, item, standings) {
-    this.element('lap-value').textContent = `${Math.min(totalLaps, completedLaps + 1)}/${totalLaps}`;
-    this.element('position-value').textContent = ordinal(position);
-    this.element('speed-value').textContent = `${Math.max(0, Math.round(speed * 5.2))} km/h`;
-    const slot = this.element('item-slot');
-    slot.textContent = item ? ITEM_ICONS[item] : '—';
-    slot.classList.toggle('ready', Boolean(item));
-    this.element('race-board').innerHTML = standings.map((standing, index) => `
-      <div class="racer-row ${standing.isPlayer ? 'player' : ''}">
-        <strong>${index + 1}</strong><span>${standing.emoji}</span><span class="name">${standing.name}</span>
-      </div>`).join('');
-  }
-
-  showFinish(position, standings, raceTime) {
-    this.hideScreens();
-    for (const id of ['hud', 'mobile-controls', 'item-slot', 'race-board']) this.element(id).classList.add('hidden');
-    this.element('finish-position').textContent = ordinal(position);
-    this.element('finish-copy').textContent = `Tiempo: ${formatTime(raceTime)} · ${position <= 3 ? '¡Subiste al podio!' : 'La revancha te espera.'}`;
-    this.element('podium').innerHTML = standings.slice(0, 3).map((standing, index) => `
-      <div class="podium-card"><span>${standing.emoji}</span><strong>${index + 1}.º ${standing.name}</strong></div>`).join('');
-    this.element('finish-screen').classList.remove('hidden');
-  }
-
-  renderCharacters() {
-    const grid = this.element('character-grid');
-    grid.innerHTML = CHARACTERS.map((character) => `
-      <button class="character-card ${character.id === this.selectedCharacterId ? 'selected' : ''}" data-character="${character.id}" style="--accent:${character.accent}">
-        <span class="character-face">${character.emoji}</span>
-        <span class="character-name">${character.name}</span>
-        <span class="character-role">${character.role}</span>
-        <span class="stat-row">${Array.from({ length: 5 }, (_, index) => `<i class="stat-dot ${index < Math.round(character.maxSpeed * 4) ? 'on' : ''}"></i>`).join('')}</span>
-      </button>`).join('');
-    grid.querySelectorAll('.character-card').forEach((card) => card.addEventListener('click', () => {
-      this.selectedCharacterId = getCharacter(card.dataset.character).id;
-      grid.querySelectorAll('.character-card').forEach((item) => item.classList.remove('selected'));
-      card.classList.add('selected');
-    }));
-  }
-
-  bindEvents() {
-    this.element('start-race').addEventListener('click', () => this.events.onStart(this.selectedCharacterId));
-    this.element('resume-race').addEventListener('click', this.events.onResume);
-    this.element('restart-race').addEventListener('click', this.events.onRestart);
-    this.element('finish-restart').addEventListener('click', this.events.onRestart);
-    this.element('pause-menu').addEventListener('click', this.events.onMenu);
-    this.element('finish-menu').addEventListener('click', this.events.onMenu);
-    this.element('fullscreen-button').addEventListener('click', () => document.documentElement.requestFullscreen?.());
-  }
-
-  template() {
-    return `
+import{CHARACTERS as e,DIFFICULTIES as t,ITEM_ICONS as s,TRACKS as n,formatTime as i,getCharacter as a,getDifficulty as r,getTrack as o,ordinal as d,safeLocalStorage as c}from"./characters.js";const l=["⚡","🚀","🛡️","🍌","💫"];export class InputController{constructor({onPause:e=()=>{},onAction:t=()=>{}}={}){this.left=!1,this.right=!1,this.accelerate=!1,this.brake=!1,this.drift=!1,this.itemQueued=!1,this.pauseQueued=!1,this.autoAccelerate=window.matchMedia("(pointer: coarse)").matches,this.onAction=t,this.gamepadItemPressed=!1,this.gamepadPausePressed=!1,this.bindKeyboard(e),this.bindHold("steer-left",e=>{this.left=e}),this.bindHold("steer-right",e=>{this.right=e}),this.bindHold("drift-button",e=>{this.drift=e}),this.bindHold("brake-button",e=>{this.brake=e});const s=document.querySelector("#item-button");s?.addEventListener("pointerdown",e=>{e.preventDefault(),this.itemQueued=!0,this.onAction("item"),s.classList.add("active");try{s.setPointerCapture(e.pointerId)}catch{}});const n=()=>s?.classList.remove("active");s?.addEventListener("pointerup",n),s?.addEventListener("pointercancel",n),s?.addEventListener("lostpointercapture",n),document.querySelector("#pause-button")?.addEventListener("click",e)}sample(){let e=this.left===this.right?0:this.left?-1:1,t=this.autoAccelerate||this.accelerate?1:0,s=this.brake?1:0,n=this.drift,i=this.itemQueued;const a=Array.from(navigator.getGamepads?.()??[]).find(Boolean);if(a){const r=Math.abs(a.axes[0]??0)>.12?a.axes[0]:0;Math.abs(r)>Math.abs(e)&&(e=r);const o=a.buttons[7]?.value??0,d=a.buttons[6]?.value??0;t=Math.max(t,o,a.buttons[0]?.pressed?1:0),s=Math.max(s,d),n=n||Boolean(a.buttons[1]?.pressed||a.buttons[4]?.pressed);const c=Boolean(a.buttons[2]?.pressed||a.buttons[5]?.pressed);c&&!this.gamepadItemPressed&&(i=!0),this.gamepadItemPressed=c;const l=Boolean(a.buttons[9]?.pressed);l&&!this.gamepadPausePressed&&(this.pauseQueued=!0),this.gamepadPausePressed=l}return this.itemQueued=!1,{steer:e,throttle:t,brake:s,drift:n,useItem:i}}consumePause(){const e=this.pauseQueued;return this.pauseQueued=!1,e}reset(){this.left=!1,this.right=!1,this.accelerate=!1,this.brake=!1,this.drift=!1,this.itemQueued=!1,this.pauseQueued=!1,this.gamepadItemPressed=!1,this.gamepadPausePressed=!1,document.querySelectorAll(".touch-button.active").forEach(e=>e.classList.remove("active"))}bindKeyboard(e){const t=(e,t)=>{if(["ArrowLeft","a","A"].includes(e))this.left=t;else if(["ArrowRight","d","D"].includes(e))this.right=t;else if(["ArrowUp","w","W"].includes(e))this.accelerate=t;else if(["ArrowDown","s","S"].includes(e))this.brake=t;else if("Shift"===e)this.drift=t;else{if(" "!==e)return!1;t&&(this.itemQueued=!0)}return!0};window.addEventListener("keydown",s=>{["Escape","p","P"].includes(s.key)?(s.repeat||e(),s.preventDefault()):t(s.key,!0)&&s.preventDefault()}),window.addEventListener("keyup",e=>{t(e.key,!1)&&e.preventDefault()}),window.addEventListener("blur",()=>this.reset())}bindHold(e,t){const s=document.querySelector(`#${e}`);if(!s)return;const n=e=>{e.preventDefault(),t(!1),s.classList.remove("active")};s.addEventListener("pointerdown",n=>{n.preventDefault(),t(!0),s.classList.add("active"),this.onAction(e);try{s.setPointerCapture(n.pointerId)}catch{}}),s.addEventListener("pointerup",n),s.addEventListener("pointercancel",n),s.addEventListener("lostpointercapture",n)}}export class GameUI{constructor(e,t,s={}){this.root=e,this.events=t,this.storage=c(),this.selectedCharacterId=this.storage?.getItem("turboCharacter")??"byte",this.selectedTrackId=this.storage?.getItem("turboTrack")??"aurora",this.selectedDifficultyId=this.storage?.getItem("turboDifficulty")??"turbo",this.messageTimer=0,this.lastBoardMarkup="",this.minimapPoints=[],this.minimapBounds=null,this.minimapContext=null,this.muted=Boolean(s.muted),e.innerHTML=this.template(),this.renderCharacters(),this.renderTracks(),this.renderDifficulties(),this.bindEvents(),this.setMuted(this.muted),this.showMenu()}element(e){const t=this.root.querySelector(`#${e}`);if(!t)throw new Error(`Falta el elemento #${e}`);return t}hideScreens(){this.root.querySelectorAll(".screen").forEach(e=>e.classList.add("hidden"))}showMenu(){this.hideScreens(),this.element("menu-screen").classList.remove("hidden");for(const e of["hud","hud-sound","mobile-controls","item-slot","race-board","minimap-wrap","drift-meter"])this.element(e).classList.add("hidden");this.element("countdown").textContent="",this.element("message").classList.remove("show"),this.updateMenuRecord()}showRace(){this.hideScreens();for(const e of["hud","hud-sound","mobile-controls","item-slot","race-board","minimap-wrap","drift-meter"])this.element(e).classList.remove("hidden");this.element("pause-screen").classList.add("hidden")}showPause(){this.element("pause-screen").classList.remove("hidden")}hidePause(){this.element("pause-screen").classList.add("hidden")}showCountdown(e){this.element("countdown").textContent=e}showMessage(e,t=1.35){const s=this.element("message");s.textContent=e,s.classList.add("show"),window.clearTimeout(this.messageTimer),this.messageTimer=window.setTimeout(()=>s.classList.remove("show"),1e3*t)}showLapBanner(e,t){this.showMessage(e>=t?"🏁 ¡Última vuelta!":`🏁 Vuelta ${e}/${t}`,1.8)}setMuted(e){this.muted=Boolean(e);for(const e of this.root.querySelectorAll("[data-sound-button]"))e.textContent=this.muted?"🔇":"🔊",e.setAttribute("aria-label",this.muted?"Activar sonido":"Silenciar sonido")}updateHUD(e){const{completedLaps:t,totalLaps:n,position:a,speed:r,item:o,itemRoulette:c,standings:h,coins:u,driftRatio:m,driftTier:p,raceTime:b,bestTime:v}=e;this.element("lap-value").textContent=`${Math.min(n,t+1)}/${n}`,this.element("position-value").textContent=d(a),this.element("speed-value").textContent=`${Math.max(0,Math.round(5.35*r))}`,this.element("coin-value").textContent=String(u),this.element("race-time").textContent=i(b),this.element("best-time").textContent=v?i(v):"—";const f=this.element("item-slot");if(c>0){const e=Math.floor(performance.now()/80)%l.length;f.textContent=l[e],f.classList.add("roulette"),f.classList.remove("ready")}else f.textContent=o?s[o]:"—",f.classList.toggle("ready",Boolean(o)),f.classList.remove("roulette");const g=this.element("drift-meter");g.style.setProperty("--drift",String(m)),g.dataset.tier=String(p),g.classList.toggle("charging",m>.01);const y=h.map((e,t)=>`
+      <div class="racer-row ${e.isPlayer?"player":""}">
+        <strong>${t+1}</strong>
+        <span>${e.emoji}</span>
+        <span class="name">${e.name}</span>
+        <span class="racer-coins">${e.coins??0}🪙</span>
+      </div>`).join("");y!==this.lastBoardMarkup&&(this.element("race-board").innerHTML=y,this.lastBoardMarkup=y)}configureMinimap(e){if(this.minimapPoints=e,!e.length)return;const t=e.map(e=>e.x),s=e.map(e=>e.z);this.minimapBounds={minX:Math.min(...t),maxX:Math.max(...t),minZ:Math.min(...s),maxZ:Math.max(...s)};const n=this.element("minimap");this.minimapContext=n.getContext("2d")}updateMinimap(e){const t=this.element("minimap"),s=this.minimapContext,n=this.minimapBounds;if(!s||!n||!this.minimapPoints.length)return;const i=t.width,a=t.height,r=Math.max(1,n.maxX-n.minX),o=Math.max(1,n.maxZ-n.minZ),d=Math.min((i-40)/r,(a-40)/o),c=(i-r*d)/2,l=(a-o*d)/2,h=(e,t)=>({x:c+(e-n.minX)*d,y:l+(t-n.minZ)*d});s.clearRect(0,0,i,a),s.lineCap="round",s.lineJoin="round",s.beginPath(),this.minimapPoints.forEach((e,t)=>{const n=h(e.x,e.z);0===t?s.moveTo(n.x,n.y):s.lineTo(n.x,n.y)}),s.closePath(),s.strokeStyle="rgba(3, 8, 20, .72)",s.lineWidth=15,s.stroke(),s.strokeStyle="rgba(238, 247, 255, .88)",s.lineWidth=7,s.stroke();for(const t of e){const e=h(t.x,t.z);s.beginPath(),s.arc(e.x,e.y,t.isPlayer?7:4.5,0,2*Math.PI),s.fillStyle=t.color,s.fill(),t.isPlayer&&(s.strokeStyle="#ffffff",s.lineWidth=2.5,s.stroke())}}showFinish(e){const{position:t,standings:s,raceTime:n,bestTime:a,newRecord:r,trackName:o,difficultyName:c}=e;this.hideScreens();for(const e of["hud","hud-sound","mobile-controls","item-slot","race-board","minimap-wrap","drift-meter"])this.element(e).classList.add("hidden");this.element("finish-position").textContent=d(t),this.element("finish-copy").textContent=`${o} · ${c} · ${i(n)}`,this.element("record-banner").classList.toggle("hidden",!r),this.element("finish-record").textContent=a?`Mejor tiempo: ${i(a)}`:"",this.element("podium").innerHTML=s.slice(0,3).map((e,t)=>`
+      <div class="podium-card rank-${t+1}">
+        <span>${e.emoji}</span>
+        <strong>${t+1}.º ${e.name}</strong>
+      </div>`).join(""),this.element("finish-table").innerHTML=s.map((e,t)=>`
+      <div class="finish-row ${e.isPlayer?"player":""}">
+        <strong>${t+1}</strong><span>${e.emoji}</span><span>${e.name}</span><span>${e.coins??0} 🪙</span>
+      </div>`).join(""),this.element("finish-screen").classList.remove("hidden")}showFatal(e){this.hideScreens(),this.element("fatal-message").textContent=e,this.element("fatal-screen").classList.remove("hidden")}updateMenuRecord(){const e=`turboBest:${this.selectedTrackId}:${this.selectedDifficultyId}`,t=Number(this.storage?.getItem(e)??0);this.element("menu-record").textContent=t>0?`Récord: ${i(t)}`:"Sin récord todavía"}renderCharacters(){const t=this.element("character-grid");t.innerHTML=e.map(e=>`
+      <button class="character-card ${e.id===this.selectedCharacterId?"selected":""}"
+        data-character="${e.id}" style="--accent:${e.accent}">
+        <span class="character-face">${e.emoji}</span>
+        <span class="character-copy">
+          <span class="character-name">${e.name}</span>
+          <span class="character-role">${e.role}</span>
+        </span>
+        <span class="mini-stats">
+          ${this.statBar("Vel",e.maxSpeed,e.accent)}
+          ${this.statBar("Ace",e.acceleration,e.accent)}
+          ${this.statBar("Man",e.handling,e.accent)}
+        </span>
+      </button>`).join(""),t.querySelectorAll(".character-card").forEach(e=>e.addEventListener("click",()=>{this.selectedCharacterId=a(e.dataset.character).id,this.storage?.setItem("turboCharacter",this.selectedCharacterId),t.querySelectorAll(".character-card").forEach(e=>e.classList.remove("selected")),e.classList.add("selected"),this.events.onMenuAction?.("click")}))}statBar(e,t,s){return`<span class="mini-stat"><b>${e}</b><i><em style="width:${Math.round(100*Math.max(0,Math.min(1,(t-.78)/.38)))}%;background:${s}"></em></i></span>`}renderTracks(){const e=this.element("track-grid");e.innerHTML=n.map(e=>`
+      <button class="track-card ${e.id===this.selectedTrackId?"selected":""}" data-track="${e.id}">
+        <span class="track-emoji">${e.emoji}</span>
+        <span><strong>${e.name}</strong><small>${e.description}</small></span>
+        <em>${e.difficulty}</em>
+      </button>`).join(""),e.querySelectorAll(".track-card").forEach(t=>t.addEventListener("click",()=>{this.selectedTrackId=o(t.dataset.track).id,this.storage?.setItem("turboTrack",this.selectedTrackId),e.querySelectorAll(".track-card").forEach(e=>e.classList.remove("selected")),t.classList.add("selected"),this.updateMenuRecord(),this.events.onTrackPreview?.(this.selectedTrackId),this.events.onMenuAction?.("click")}))}renderDifficulties(){const e=this.element("difficulty-grid");e.innerHTML=t.map(e=>`
+      <button class="difficulty-card ${e.id===this.selectedDifficultyId?"selected":""}" data-difficulty="${e.id}">
+        <span>${e.emoji}</span><strong>${e.name}</strong><small>${e.description}</small>
+      </button>`).join(""),e.querySelectorAll(".difficulty-card").forEach(t=>t.addEventListener("click",()=>{this.selectedDifficultyId=r(t.dataset.difficulty).id,this.storage?.setItem("turboDifficulty",this.selectedDifficultyId),e.querySelectorAll(".difficulty-card").forEach(e=>e.classList.remove("selected")),t.classList.add("selected"),this.updateMenuRecord(),this.events.onMenuAction?.("click")}))}bindEvents(){this.element("start-race").addEventListener("click",()=>this.events.onStart({characterId:this.selectedCharacterId,trackId:this.selectedTrackId,difficultyId:this.selectedDifficultyId})),this.element("resume-race").addEventListener("click",this.events.onResume),this.element("restart-race").addEventListener("click",this.events.onRestart),this.element("finish-restart").addEventListener("click",this.events.onRestart),this.element("pause-menu").addEventListener("click",this.events.onMenu),this.element("finish-menu").addEventListener("click",this.events.onMenu),this.element("fatal-reload").addEventListener("click",()=>window.location.reload()),this.element("fullscreen-button").addEventListener("click",async()=>{try{await(document.documentElement.requestFullscreen?.())}catch{this.showMessage("Abre el menú del navegador y elige “Pantalla completa”.",2.5)}});for(const e of this.root.querySelectorAll("[data-sound-button]"))e.addEventListener("click",()=>this.events.onToggleSound?.())}template(){return'
       <section id="menu-screen" class="screen">
         <div class="menu-card">
+          <div class="menu-topline">
+            <span class="version-chip">Edición Grand Prix</span>
+            <button class="icon-button" data-sound-button aria-label="Silenciar sonido">🔊</button>
+          </div>
           <h1 class="brand">Turbo <span>Circuit 3D</span></h1>
-          <p class="menu-copy">Carrera arcade 3D contra siete rivales. Derrapa para cargar mini-turbos, recoge objetos y completa tres vueltas antes que los demás.</p>
-          <h2 class="section-title">Elige tu personaje</h2>
+          <p class="menu-copy">Compite contra siete pilotos, domina el derrape, recoge monedas, salta rampas y usa objetos para ganar.</p>
+
+          <h2 class="section-title">1. Elige piloto</h2>
           <div id="character-grid" class="character-grid"></div>
+
+          <h2 class="section-title">2. Elige circuito</h2>
+          <div id="track-grid" class="track-grid"></div>
+
+          <h2 class="section-title">3. Nivel de rivales</h2>
+          <div id="difficulty-grid" class="difficulty-grid"></div>
+
           <div class="menu-actions">
-            <button id="start-race" class="primary-button">Iniciar Gran Premio</button>
+            <button id="start-race" class="primary-button">🏁 Iniciar Gran Premio</button>
             <button id="fullscreen-button" class="secondary-button">Pantalla completa</button>
           </div>
-          <div class="hint-row">
-            <span class="key-hint">Móvil: aceleración automática</span><span class="key-hint">WASD o flechas</span><span class="key-hint">Shift: derrape</span><span class="key-hint">Espacio: objeto</span>
+          <div class="menu-footer">
+            <span id="menu-record" class="record-chip">Sin récord todavía</span>
+            <span class="key-hint">Móvil: acelera solo · Derrape: 〰 · Objeto: 🎁</span>
+            <span class="key-hint">Teclado / mando compatibles</span>
           </div>
         </div>
       </section>
+
       <div id="hud" class="hidden">
         <div class="hud-panel"><span class="hud-label">Vuelta</span><span id="lap-value" class="hud-value">1/3</span></div>
         <button id="pause-button" aria-label="Pausar">⏸</button>
         <div class="hud-panel right"><span class="hud-label">Posición</span><span id="position-value" class="hud-value">1.º</span></div>
-        <div class="hud-panel"><span class="hud-label">Velocidad</span><span id="speed-value" class="hud-value">0 km/h</span></div>
+        <div class="hud-panel speed-panel"><span class="hud-label">Velocidad</span><span><b id="speed-value" class="hud-value">0</b><small> km/h</small></span></div>
+        <div class="hud-panel coin-panel"><span class="hud-label">Monedas</span><span class="hud-value">🪙 <b id="coin-value">0</b></span></div>
+        <div class="hud-panel time-panel"><span class="hud-label">Tiempo / récord</span><span class="time-values"><b id="race-time">0:00.00</b><small id="best-time">—</small></span></div>
       </div>
-      <div id="item-slot" class="hidden">—</div><div id="race-board" class="hidden"></div><div id="countdown"></div><div id="message"></div>
+
+      <button id="hud-sound" class="hud-sound hidden" data-sound-button aria-label="Silenciar sonido">🔊</button>
+      <div id="item-slot" class="hidden" aria-label="Objeto disponible">—</div>
+      <div id="race-board" class="hidden"></div>
+      <div id="minimap-wrap" class="hidden"><canvas id="minimap" width="220" height="220" aria-label="Mapa del circuito"></canvas></div>
+      <div id="countdown"></div>
+      <div id="message"></div>
+      <div id="drift-meter" class="hidden" data-tier="0"><span>MINI-TURBO</span><i><em></em></i></div>
+
       <div id="mobile-controls" class="hidden">
-        <div class="control-cluster"><button id="steer-left" class="touch-button">‹</button><button id="steer-right" class="touch-button">›</button></div>
-        <div class="control-cluster actions"><button id="drift-button" class="touch-button small">〰</button><button id="item-button" class="touch-button small">🎁</button></div>
+        <div class="control-cluster steering">
+          <button id="steer-left" class="touch-button steer" aria-label="Girar a la izquierda">‹</button>
+          <button id="steer-right" class="touch-button steer" aria-label="Girar a la derecha">›</button>
+        </div>
+        <div class="control-cluster actions">
+          <button id="brake-button" class="touch-button action brake" aria-label="Frenar">◼</button>
+          <button id="drift-button" class="touch-button action" aria-label="Derrapar">〰</button>
+          <button id="item-button" class="touch-button action item" aria-label="Usar objeto">🎁</button>
+        </div>
       </div>
-      <section id="pause-screen" class="screen hidden"><div class="menu-card" style="max-width:440px;text-align:center">
-        <h2 class="finish-title">Pausa</h2><p class="menu-copy">La carrera está detenida.</p>
-        <button id="resume-race" class="primary-button" style="width:100%">Continuar</button>
-        <button id="restart-race" class="secondary-button" style="width:100%;margin-top:10px">Reiniciar</button>
-        <button id="pause-menu" class="secondary-button" style="width:100%;margin-top:10px">Elegir personaje</button>
-      </div></section>
-      <section id="finish-screen" class="screen hidden"><div class="menu-card" style="max-width:620px">
-        <h2 class="finish-title">Carrera terminada</h2><div id="finish-position" class="finish-position">1.º</div><p id="finish-copy" class="finish-copy"></p><div id="podium" class="podium"></div>
-        <div class="menu-actions"><button id="finish-restart" class="primary-button">Correr de nuevo</button><button id="finish-menu" class="secondary-button">Personajes</button></div>
-      </div></section>`;
-  }
-}
+
+      <section id="pause-screen" class="screen hidden">
+        <div class="menu-card compact-card">
+          <h2 class="finish-title">Pausa</h2>
+          <p class="menu-copy">La carrera está detenida.</p>
+          <button id="resume-race" class="primary-button full-button">Continuar</button>
+          <button id="restart-race" class="secondary-button full-button">Reiniciar carrera</button>
+          <button id="pause-menu" class="secondary-button full-button">Cambiar piloto o pista</button>
+        </div>
+      </section>
+
+      <section id="finish-screen" class="screen hidden">
+        <div class="menu-card finish-card">
+          <div id="record-banner" class="record-banner hidden">✨ NUEVO RÉCORD ✨</div>
+          <h2 class="finish-title">Carrera terminada</h2>
+          <div id="finish-position" class="finish-position">1.º</div>
+          <p id="finish-copy" class="finish-copy"></p>
+          <p id="finish-record" class="finish-record"></p>
+          <div id="podium" class="podium"></div>
+          <div id="finish-table" class="finish-table"></div>
+          <div class="menu-actions">
+            <button id="finish-restart" class="primary-button">Correr de nuevo</button>
+            <button id="finish-menu" class="secondary-button">Cambiar selección</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="fatal-screen" class="screen hidden">
+        <div class="menu-card compact-card">
+          <h2 class="finish-title">No pudo iniciar</h2>
+          <p id="fatal-message" class="menu-copy"></p>
+          <button id="fatal-reload" class="primary-button full-button">Recargar juego</button>
+        </div>
+      </section>'}}
