@@ -1,42 +1,61 @@
-# Turbo Circuit 3D
+# Turbo Circuit 3D · Grand Prix 3.2
 
-Juego de carreras arcade 3D para navegador, inspirado en el género de karts pero con personajes y diseño originales.
+Videojuego de carreras arcade 3D para navegador y móvil, con pilotos y diseño originales.
 
-## Características
+## Novedades de la edición Grand Prix
 
-- Ocho personajes con estadísticas diferentes.
-- Un jugador contra siete rivales controlados por IA.
-- Circuito 3D de tres vueltas, clasificación en tiempo real y cámara de persecución.
-- Derrapes con mini-turbo.
-- Cajas de objetos: nitro, cohete, escudo y trampa.
-- Controles táctiles para móvil y controles de teclado.
-- Gráficos low-poly generados por código, sin recursos externos de arte.
-- Despliegue automático en GitHub Pages.
+- Tres circuitos seleccionables: Costa Aurora, Puerto Neón y Cañón Solar.
+- Ocho pilotos con velocidad, aceleración, manejo, derrape, peso y agarre distintos.
+- Tres dificultades de inteligencia artificial.
+- Monedas que aumentan progresivamente la velocidad máxima.
+- Rampas, saltos, zonas turbo y partículas dinámicas.
+- Derrape por niveles con mini-turbo azul, naranja y púrpura.
+- Cinco objetos: nitro, cohete, escudo, trampa y pulso de impacto.
+- Minimap, tabla de posiciones, cronómetro y récord por pista/dificultad.
+- Sonido de motor sintetizado, efectos, vibración y control de silencio.
+- Controles táctiles, teclado y mando mediante Gamepad API.
+- Resolución gráfica adaptativa para mantener el rendimiento en móvil.
+- Aplicación web instalable y caché sin conexión mediante Service Worker.
 
-## Tecnología
+## Tecnología de producción
 
-- TypeScript 7
-- Three.js 0.185
-- Vite 8.1
-- WebGL y módulos ES
-- GitHub Actions + GitHub Pages
+- JavaScript moderno con módulos ES.
+- Three.js y WebGL.
+- Web Audio API, Gamepad API, Canvas 2D y Service Worker.
+- Despliegue estático automatizado con GitHub Actions y GitHub Pages.
 
-## Desarrollo local
+La carpeta `web/` contiene el motor que ejecuta el navegador. `src/styles.css` contiene la interfaz responsive. El proyecto conserva también la base TypeScript previa como referencia de desarrollo.
+
+## Controles
+
+### Móvil
+
+- Flechas: dirección.
+- `〰`: derrape.
+- `◼`: freno/reversa.
+- `🎁`: objeto.
+- La aceleración es automática.
+
+### Teclado
+
+- WASD o flechas: conducir.
+- Shift: derrape.
+- Espacio: objeto.
+- Escape o P: pausa.
+
+### Mando
+
+- Stick izquierdo: dirección.
+- Gatillo derecho o A: acelerar.
+- Gatillo izquierdo: frenar.
+- B/LB: derrape.
+- X/RB: objeto.
+- Start: pausa.
+
+## Construcción estática
 
 ```bash
-npm install
-npm run dev
+node scripts/build-static.mjs
 ```
 
-## Validación y producción
-
-```bash
-npm run typecheck
-npm run build
-npm run preview
-```
-
-### Controles
-
-- Móvil: dirección, derrape y objeto en pantalla; aceleración automática.
-- Escritorio: WASD o flechas, `Shift` para derrapar, `Espacio` para usar el objeto y `Esc/P` para pausar.
+El resultado se genera en `dist/` y no requiere instalar dependencias para desplegarse.
