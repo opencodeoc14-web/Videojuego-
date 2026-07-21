@@ -32,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Type-check and build
+      - name: Test and build static browser edition
         run: npm run build
 
       - name: Upload Pages artifact
