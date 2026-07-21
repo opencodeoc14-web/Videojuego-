@@ -1,0 +1,21 @@
+{
+  "name": "Turbo Circuit 3D · Grand Prix",
+  "short_name": "Turbo Circuit",
+  "description": "Carreras arcade 3D con ocho pilotos, tres circuitos, derrapes, saltos y objetos.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#091020",
+  "theme_color": "#10182f",
+  "lang": "es",
+  "categories": ["games", "racing"],
+  "icons": [
+    {
+      "src": "./app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
