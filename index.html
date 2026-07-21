@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>Turbo Calle</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <canvas id="game" aria-label="Juego de carreras"></canvas>
+
+  <div id="hud">
+    <div class="hud-card">
+      <span class="label">Puntos</span>
+      <span class="value" id="score">0</span>
+    </div>
+    <button id="pauseBtn" aria-label="Pausar">⏸</button>
+    <div class="hud-card right">
+      <span class="label">Récord</span>
+      <span class="value" id="best">0</span>
+    </div>
+    <div></div>
+    <div id="lives" aria-label="Vidas">❤️❤️❤️</div>
+    <div></div>
+  </div>
+
+  <div id="boostLabel">Turbo</div>
+  <div id="boostBar"><div id="boostFill"></div></div>
+
+  <div id="controls">
+    <button class="control" id="leftBtn" aria-label="Mover a la izquierda">‹</button>
+    <button class="control" id="rightBtn" aria-label="Mover a la derecha">›</button>
+  </div>
+
+  <div id="toast"></div>
+
+  <div class="overlay" id="startOverlay">
+    <div class="panel">
+      <h1 class="logo">Turbo <span>Calle</span></h1>
+      <p class="subtitle">
+        Esquiva el tráfico, recoge monedas y sobrevive el mayor tiempo posible.
+        Mantén ambos controles pulsados para activar el turbo.
+      </p>
+      <button class="main-btn" id="startBtn">Jugar ahora</button>
+      <div class="tips">
+        <div class="tip"><strong>‹ ›</strong>Mover el carro</div>
+        <div class="tip"><strong>‹ + ›</strong>Activar turbo</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="pauseOverlay">
+    <div class="panel">
+      <h2 class="logo" style="font-size:42px">Pausa</h2>
+      <p class="subtitle">La carrera está detenida.</p>
+      <button class="main-btn" id="resumeBtn">Continuar</button>
+      <button class="secondary-btn" id="restartFromPauseBtn">Reiniciar</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="gameOverOverlay">
+    <div class="panel">
+      <h2 class="logo" style="font-size:42px">Fin de <span>carrera</span></h2>
+      <p id="result">Puntos: <strong>0</strong></p>
+      <button class="main-btn" id="restartBtn">Intentar de nuevo</button>
+    </div>
+  </div>
+
+  <div id="rotateHint">
+    <div>
+      <div style="font-size:52px">📱</div>
+      <h2>Gira el teléfono</h2>
+      <p style="color:#a9b5c7">Este juego está optimizado para jugar en vertical.</p>
+    </div>
+  </div>
+
+  <script src="game1.js"></script>
+  <script src="game2.js"></script>
+  <script src="game3.js"></script>
+</body>
+</html>
