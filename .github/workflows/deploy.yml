@@ -1,4 +1,4 @@
-name: Deploy Turbo Circuit 3D
+name: Deploy Turbo Legends Vehicles
 
 on:
   push:
@@ -19,26 +19,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
+
+      - name: Rebuild source package
+        run: |
+          cat source-parts/part-* > turbo-legends-source.zip
+          mkdir app
+          unzip -q turbo-legends-source.zip -d app
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        working-directory: app
+        run: npm ci --no-audit --no-fund
 
-      - name: Test and build static browser edition
+      - name: Type-check and build
+        working-directory: app
         run: npm run build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: dist
+          path: app/dist
 
   deploy:
     environment:

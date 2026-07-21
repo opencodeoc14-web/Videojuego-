@@ -1,61 +1,19 @@
-# Turbo Circuit 3D · Grand Prix 3.2
+# Turbo Legends — Taller de Vehículos 3D
 
-Videojuego de carreras arcade 3D para navegador y móvil, con pilotos y diseño originales.
+Versión probada del taller de producción de Turbo Legends.
 
-## Novedades de la edición Grand Prix
+## Contenido
 
-- Tres circuitos seleccionables: Costa Aurora, Puerto Neón y Cañón Solar.
-- Ocho pilotos con velocidad, aceleración, manejo, derrape, peso y agarre distintos.
-- Tres dificultades de inteligencia artificial.
-- Monedas que aumentan progresivamente la velocidad máxima.
-- Rampas, saltos, zonas turbo y partículas dinámicas.
-- Derrape por niveles con mini-turbo azul, naranja y púrpura.
-- Cinco objetos: nitro, cohete, escudo, trampa y pulso de impacto.
-- Minimap, tabla de posiciones, cronómetro y récord por pista/dificultad.
-- Sonido de motor sintetizado, efectos, vibración y control de silencio.
-- Controles táctiles, teclado y mando mediante Gamepad API.
-- Resolución gráfica adaptativa para mantener el rendimiento en móvil.
-- Aplicación web instalable y caché sin conexión mediante Service Worker.
+- Ocho vehículos 3D diferenciados.
+- Selector de piloto y vehículo.
+- Vista normal y vista de piezas.
+- Rotación táctil y animaciones mecánicas.
+- Fichas técnicas y estadísticas.
+- Diseño adaptable para móvil y escritorio.
+- Las cinco pistas permanecen reservadas para la siguiente fase.
 
-## Tecnología de producción
+## Tecnología
 
-- JavaScript moderno con módulos ES.
-- Three.js y WebGL.
-- Web Audio API, Gamepad API, Canvas 2D y Service Worker.
-- Despliegue estático automatizado con GitHub Actions y GitHub Pages.
+TypeScript, Three.js, WebGL y Vite.
 
-La carpeta `web/` contiene el motor que ejecuta el navegador. `src/styles.css` contiene la interfaz responsive. El proyecto conserva también la base TypeScript previa como referencia de desarrollo.
-
-## Controles
-
-### Móvil
-
-- Flechas: dirección.
-- `〰`: derrape.
-- `◼`: freno/reversa.
-- `🎁`: objeto.
-- La aceleración es automática.
-
-### Teclado
-
-- WASD o flechas: conducir.
-- Shift: derrape.
-- Espacio: objeto.
-- Escape o P: pausa.
-
-### Mando
-
-- Stick izquierdo: dirección.
-- Gatillo derecho o A: acelerar.
-- Gatillo izquierdo: frenar.
-- B/LB: derrape.
-- X/RB: objeto.
-- Start: pausa.
-
-## Construcción estática
-
-```bash
-node scripts/build-static.mjs
-```
-
-El resultado se genera en `dist/` y no requiere instalar dependencias para desplegarse.
+El flujo de GitHub Actions reconstruye el paquete fuente, comprueba TypeScript, genera la versión de producción y la publica en GitHub Pages.
