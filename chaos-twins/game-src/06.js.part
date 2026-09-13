@@ -1,0 +1,57 @@
+ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,canvas.width/dpr,canvas.height/dpr);ctx.scale(scale,scale);
+ background(t,mode==='title');
+ if(mode==='title')drawTitleScene(t);
+ else{ctx.save();if(shake>.1&&!reduced)ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);drawWorld(t);ctx.restore();}
+}
+function resize(){
+ const r=stage.getBoundingClientRect(),w=Math.max(1,r.width-2),h=Math.max(1,r.height-2);dpr=Math.min(window.devicePixelRatio||1,2);
+ canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);viewH=600;scale=h/viewH;viewW=w/scale;
+ camX=clamp(camX,0,Math.max(0,WORLD-viewW));render(performance.now());
+}
+function frame(now){
+ let dt=clamp((now-last)/1000,0,.1);last=now;
+ if(mode==='playing'){acc+=dt;let steps=0;while(acc>=FIXED&&steps<12){update(FIXED);acc-=FIXED;steps++;}if(steps===12)acc=0;visualClock+=dt;}
+ else{acc=0;if(mode==='title')visualClock+=dt;}
+ render(now);requestAnimationFrame(frame);
+}
+// Input is scoped to the running game. Pointer capture prevents stuck buttons.
+const gameCodes=new Set(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','KeyA','KeyD','KeyW','KeyX','KeyJ','KeyC','KeyK']);
+addEventListener('keydown',e=>{
+ if(e.ctrlKey||e.metaKey||e.altKey)return;
+ if((e.code==='Escape'||e.code==='KeyP')&&mode==='playing'){e.preventDefault();pause();return;}
+ if(e.code==='Escape'&&mode==='paused'){e.preventDefault();resume();return;}
+ if(mode!=='playing'||!gameCodes.has(e.code))return;
+ e.preventDefault();if(e.repeat)return;held.add(e.code);
+ if(['Space','KeyW','ArrowUp'].includes(e.code))jumpPressed();
+ if(['KeyX','KeyJ'].includes(e.code))spinPressed();
+ if(['KeyC','KeyK'].includes(e.code))throwPressed();
+});
+addEventListener('keyup',e=>{held.delete(e.code);if(mode==='playing'&&['Space','KeyW','ArrowUp'].includes(e.code))jumpReleased();});
+function bindControl(id,down,up=()=>{}){
+ const el=$(id),ids=new Set();
+ el.addEventListener('pointerdown',e=>{if(e.button!==0&&e.pointerType==='mouse')return;e.preventDefault();if(mode!=='playing')return;ids.add(e.pointerId);try{el.setPointerCapture(e.pointerId);}catch{}el.classList.add('pressed');wakeAudio();down();});
+ const end=e=>{if(!ids.has(e.pointerId))return;ids.delete(e.pointerId);if(!ids.size){el.classList.remove('pressed');up();}};
+ el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);el.addEventListener('lostpointercapture',end);
+ el.addEventListener('click',e=>{if(e.detail===0&&mode==='playing'){down();if(id==='leftButton'||id==='rightButton')setTimeout(up,160);}});
+}
+bindControl('leftButton',()=>touchHeld.add('left'),()=>touchHeld.delete('left'));
+bindControl('rightButton',()=>touchHeld.add('right'),()=>touchHeld.delete('right'));
+bindControl('jumpButton',jumpPressed,jumpReleased);bindControl('spinButton',spinPressed);bindControl('throwButton',throwPressed);
+$('playButton').onclick=()=>startGame(false);$('continueButton').onclick=()=>startGame(true);$('pauseButton').onclick=pause;$('helpButton').onclick=showHelp;
+$('soundButton').onclick=()=>{soundOn=!soundOn;store(SETTINGS_KEY,{sound:soundOn});updateSoundUI();if(soundOn){wakeAudio();tone(659,.12);}if(audioGain){audioGain.gain.cancelScheduledValues(audio.currentTime);audioGain.gain.setValueAtTime(soundOn ? .11 : 0,audio.currentTime);}};
+$('fullscreenButton').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.querySelector('.app-shell').requestFullscreen();}catch{toast('Este navegador no permite pantalla completa. Prueba en horizontal.','i',3.5);}};
+document.querySelector('.brand').onclick=e=>{e.preventDefault();if(mode==='playing')pause();else if(mode==='title')$('playButton').focus({preventScroll:true});};
+$('modal').addEventListener('keydown',e=>{if(e.key!=='Tab')return;const buttons=[...$('modal').querySelectorAll('button:not([disabled])')];const first=buttons[0],end=buttons[buttons.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();end?.focus();}else if(!e.shiftKey&&document.activeElement===end){e.preventDefault();first?.focus();}});
+addEventListener('blur',()=>{clearInput();if(mode==='playing')pause();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();if(mode==='playing')pause();}});
+addEventListener('pagehide',saveProgress);
+if(window.ResizeObserver)new ResizeObserver(resize).observe(stage);else addEventListener('resize',resize);
+resetWorld();resize();requestAnimationFrame(frame);
+// PWA installation is optional. The standalone file works without a server.
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !window.CHAOS_STANDALONE){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+// Explicit opt-in, deterministic test interface. Not created in normal play.
+if(new URLSearchParams(location.search).has('test')){
+ const snapshot=()=>JSON.parse(JSON.stringify({mode,player,buddy,boss,gears,crates,enemies,checkpoints,relay,platforms,elapsed,deaths,sparksCount,boxesBroken,kills,camX,viewW,progress,waves}));
+ Object.defineProperty(window,'__CT_TEST__',{value:{snapshot,start:startGame,step:(n=1)=>{for(let i=0;i<n;i++)update(FIXED);render(performance.now());return snapshot();},hold:c=>held.add(c),release:c=>held.delete(c),jump:jumpPressed,spin:spinPressed,throwVox:throwPressed,warp:(x,y)=>{Object.assign(player,{x,y,vx:0,vy:0,grounded:false,jumps:0,coyote:0});buddy.x=x-45;buddy.y=y+18;camX=clamp(x-viewW*.34,0,Math.max(0,WORLD-viewW));},setPlayer:p=>Object.assign(player,p),setBoss:b=>Object.assign(boss,b),pause,resume,save:saveProgress,gearSeeds,relayOrb,gate,render:()=>render(performance.now())},writable:false});
+}
+})();

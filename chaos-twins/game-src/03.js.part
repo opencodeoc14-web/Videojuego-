@@ -1,0 +1,72 @@
+ for(const e of enemies){if(!e.alive)continue;e.phase+=dt*5;e.x+=e.dir*e.speed*dt;if(e.x<e.min){e.x=e.min;e.dir=1;}if(e.x>e.max){e.x=e.max;e.dir=-1;}
+  if(attack&&hit(attack,e)){killEnemy(e);continue;}
+  if(hit(player,e)){
+   if(player.vy>100&&prev.y+player.h<=e.y+14){killEnemy(e);player.vy=-465;player.jumps=1;}
+   else hurt(e.x+e.w/2);
+  }
+ }
+ updateBoss(dt);
+ if(!boss.dead&&boss.active){
+  if(attack&&hit(attack,boss))hitBoss();
+  if(hit(player,boss)){
+   if(player.vy>100&&prev.y+player.h<=boss.y+18&&boss.phase==='vulnerable'){if(hitBoss()){player.vy=-510;player.jumps=1;}}
+   else if(boss.hurt<=0)hurt(boss.x+47);
+  }
+ }
+ for(let i=waves.length-1;i>=0;i--){const w=waves[i];w.x+=w.vx*dt;w.life-=dt;if(!w.hit&&hit(player,w)){hurt(w.x+14);w.hit=true;}if(w.life<=0)waves.splice(i,1);}
+ for(let i=sparks.length-1;i>=0;i--){const s=sparks[i];s.life-=dt;s.phase+=dt*4;const d=Math.hypot(s.x-(player.x+17),s.y-(player.y+20));if(d<135||s.life<5.5){const dx=player.x+17-s.x,dy=player.y+20-s.y;const dist=Math.hypot(dx,dy)||1;const speed=clamp(360+elapsed*.5,360,500);s.x+=dx/dist*speed*dt;s.y+=dy/dist*speed*dt;}else{s.vy+=700*dt;s.x+=s.vx*dt;s.y+=s.vy*dt;if(s.y>FLOOR-9){s.y=FLOOR-9;s.vy=-Math.abs(s.vy)*.4;s.vx*=.65;}}
+  if(d<23){sparksCount++;sound('spark');sparks.splice(i,1);nextAutosave=.6;}else if(s.life<=0)sparks.splice(i,1);
+ }
+ for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=(p.kind==='dust'?100:600)*dt;p.rot+=dt*4;if(p.life<=0)particles.splice(i,1);}
+ if(hit(player,gate)){
+  if(gears.every(g=>g.taken)&&relay&&boss.dead){win();return;}
+  if(!tutorials.has('portal')||toastLeft<=0){tutorials.add('portal');toast(!gears.every(g=>g.taken)?'Aún faltan engranajes. Explora los caminos altos.':!relay?'Vox debe encender la baliza del puente. Regresa a las ruinas.':'Desactiva al centinela para liberar el portal.','!',3.5);}
+ }
+ const tips=[{key:'boxes',x:270,text:'X / GIRO rompe las cajas. También puedes caer sobre ellas.'},{key:'jump',x:530,text:'Pulsa SALTO dos veces para alcanzar las plataformas altas.'},{key:'vox',x:2220,text:'Lanza a Vox (C / VOX) hacia la baliza azul de las ruinas.'},{key:'last',x:5200,text:'El centinela deja su escudo abierto después de cada onda.'}];
+ for(const tip of tips)if(player.x>tip.x&&!tutorials.has(tip.key)){tutorials.add(tip.key);if(toastLeft<.4)toast(tip.text,'i',3.6);}
+ const targetCam=clamp(player.x+player.w/2-viewW*.34+player.vx*.16,0,Math.max(0,WORLD-viewW));camX=lerp(camX,targetCam,1-Math.exp(-4.5*dt));shake*=Math.exp(-11*dt);
+ if(nextAutosave>0){nextAutosave-=dt;if(nextAutosave<=0)saveProgress();}
+ updateHUD();
+}
+let hudCache='';
+function updateHUD(force=false){
+ const count=gears.filter(g=>g.taken).length,key=`${count}|${player.hp}|${sparksCount}|${Math.floor(elapsed)}|${boss.hp}|${boss.active}|${boss.dead}|${relay}|${mode}`;
+ if(force||key!==hudCache){
+  hudCache=key;$('gearCount').textContent=count;$('sparkCount').textContent=sparksCount;$('timer').textContent=formatTime(elapsed);
+  $('hearts').innerHTML=[0,1,2].map(i=>`<svg class="heart ${i>=player.hp?'empty':''}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21S2 15 2 8a5.5 5.5 0 0 1 10-3 5.5 5.5 0 0 1 10 3c0 7-10 13-10 13Z"/></svg>`).join('');$('hearts').setAttribute('aria-label',`${player.hp} de 3 vidas`);
+  $('objectiveText').textContent=count<6?`Encuentra los engranajes · ${count}/6`:!relay?'Activa la baliza con Vox':!boss.dead?'Desactiva al centinela':'¡El portal está abierto!';
+  $('bossHud').hidden=!boss.active||boss.dead||mode==='title';$('bossFill').style.width=boss.hp/5*100+'%';
+ }
+ $('bossHint').textContent=boss.phase==='vulnerable'?'¡Escudo apagado! Gira o lanza a Vox.':boss.phase==='recover'?'Buen golpe. Prepárate para la siguiente onda.':'Salta la onda. Espera a que se apague el escudo.';
+ progress=clamp(player.x/(gate.x)*100,0,100);$('progressFill').style.width=progress+'%';$('progressText').textContent=Math.floor(progress).toString().padStart(2,'0')+'%';
+ $('zoneTag').textContent=player.x<2000?'EL BOSQUE SUSPENDIDO':player.x<4300?'RUINAS DEL RELÁMPAGO':'EL CORAZÓN DE LA ISLA';
+ $('throwButton').style.opacity=buddy.mode!=='follow'||buddy.cooldown>0?'.52':'1';
+}
+function formatTime(seconds){const n=Math.max(0,Math.floor(seconds));return `${Math.floor(n/60).toString().padStart(2,'0')}:${(n%60).toString().padStart(2,'0')}`;}
+function showModal(title,body,actions,eyebrow='RESPIRA. EL CAOS PUEDE ESPERAR.'){
+ $('modalTitle').textContent=title;$('modalBody').innerHTML=body;$('modalEyebrow').textContent=eyebrow;const actionRoot=$('modalActions');actionRoot.replaceChildren();
+ actions.forEach((a,i)=>{const b=document.createElement('button');b.className=i===0?'primary-button':'secondary-button';b.textContent=a.label;b.onclick=a.action;actionRoot.appendChild(b);});
+ $('modal').hidden=false;clearInput();requestAnimationFrame(()=>$('modalActions').querySelector('button')?.focus({preventScroll:true}));
+}
+function resume(){mode='playing';$('modal').hidden=true;clearInput();canvas.focus({preventScroll:true});wakeAudio();}
+function pause(){if(mode!=='playing')return;mode='paused';saveProgress();showModal('En pausa',`<p>Riko y Vox necesitan un respiro.<br>Llevas <strong>${gears.filter(g=>g.taken).length} de 6 engranajes</strong> y ${sparksCount} chispas.</p>`,[{label:'Seguir jugando →',action:resume},{label:'Reiniciar',action:confirmRestart},{label:'Cómo jugar',action:showHelp}]);}
+function confirmRestart(){showModal('¿Empezar de nuevo?','<p>Se reiniciará esta partida. Tu mejor marca seguirá guardada.</p>',[{label:'Empezar de nuevo',action:()=>startGame(false)},{label:'Volver',action:()=>{mode='playing';pause();}}],'UN NUEVO INTENTO');}
+function showHelp(){
+ previousMode=mode;if(mode==='playing'){mode='paused';saveProgress();}clearInput();
+ showModal('Un buen equipo.',`<div class="help-grid"><span><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></span><span>Mover a Riko.</span><span><kbd>ESPACIO</kbd> / <kbd>↑</kbd></span><span>Saltar. Pulsa otra vez en el aire.</span><span><kbd>X</kbd> / <kbd>J</kbd></span><span>Girar, romper cajas y atacar.</span><span><kbd>C</kbd> / <kbd>K</kbd></span><span>Lanzar a Vox. Siempre vuelve.</span><span><kbd>ESC</kbd> / <kbd>P</kbd></span><span>Pausar y reanudar.</span></div><p>Recoge los <strong>6 engranajes</strong>, activa la baliza azul con Vox y vence al centinela. Las balizas verdes curan y guardan tu posición. En móvil, usa los botones de abajo; en horizontal verás más camino.</p>`,[{label:'¡Entendido! →',action:()=>{if(previousMode==='title'){$('modal').hidden=true;mode='title';$('playButton').focus({preventScroll:true});}else if(previousMode==='won'){$('modal').hidden=true;showWin();}else resume();}}],'ASÍ SE JUEGA');
+}
+let winData=null;
+function win(){
+ mode='won';clearInput();$('bossHud').hidden=true;$('toast').classList.remove('show');sound('victory');
+ const score=Math.max(100,6*500+sparksCount*25+kills*100+boxesBroken*50-deaths*125+Math.max(0,1800-Math.floor(elapsed)*3));
+ const prev=readStore(RECORD_KEY,null),best=!prev||!Number.isFinite(prev.score)||score>prev.score;
+ winData={score,best,time:formatTime(elapsed),deaths,sparks:sparksCount};
+ if(best)store(RECORD_KEY,{score,time:elapsed,date:new Date().toISOString()});removeStore(SAVE_KEY);refreshContinue();showWin();
+}
+function showWin(){const w=winData||{score:0,best:false,time:formatTime(elapsed),deaths,sparks:sparksCount};showModal('El caos tiene su encanto.',`<p>Los seis engranajes, una baliza encendida y un centinela fuera de servicio. Nada mal para un plan improvisado.</p><div class="win-stats"><div><strong>${w.score.toLocaleString('es')}</strong><small>PUNTOS</small></div><div><strong>${w.time}</strong><small>TIEMPO</small></div><div><strong>${w.deaths}</strong><small>REINTENTOS</small></div></div><p>${w.best?'✦ Nueva mejor marca guardada en este dispositivo.':'¡Portal reparado! Tu mejor marca sigue guardada.'}</p>`,[{label:'Volver a jugar ↗',action:()=>startGame(false)},{label:'Ir al inicio',action:goTitle}],'¡ISLA COMPLETADA! · 6 / 6 ENGRANAJES');}
+function goTitle(){resetWorld();mode='title';$('hud').hidden=true;$('objective').hidden=true;$('bossHud').hidden=true;$('modal').hidden=true;$('titleScreen').hidden=false;$('toast').classList.remove('show');refreshContinue();}
+// Drawing helpers: all graphics are original vector shapes rendered locally.
+function rr(x,y,w,h,r,fill,stroke=null,lw=1){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}}
+function ellipse(x,y,rx,ry,fill,rot=0){ctx.fillStyle=fill;ctx.beginPath();ctx.ellipse(x,y,rx,ry,rot,0,TAU);ctx.fill();}
+function circle(x,y,r,fill){ellipse(x,y,r,r,fill);}
+function poly(points,fill,stroke=null,lw=1){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}}

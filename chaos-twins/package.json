@@ -1,0 +1,8 @@
+{
+  "name": "chaos-twins-web",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Chaos Twins, original 2D platform game for web and mobile",
+  "scripts": {"build": "node build.cjs", "start": "node server.cjs"},
+  "engines": {"node": ">=22"}
+}

@@ -1,0 +1,14 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const root = __dirname;
+const parts = ['01','02','03','04','05','06'].map(n => fs.readFileSync(path.join(root,'game-src',n+'.js.part')));
+const game = Buffer.concat(parts);
+const expected = '722d92995cd761fd5ab21c8eaae8206248d2c7fe99e843d04e73697afed35f7f';
+const actual = crypto.createHash('sha256').update(game).digest('hex');
+if (actual !== expected) throw new Error('Game source integrity check failed: '+actual);
+fs.mkdirSync(path.join(root,'public'),{recursive:true});
+fs.writeFileSync(path.join(root,'public','game.js'),game);
+require('./build-icon.cjs');
+console.log('Built Chaos Twins: '+game.length+' bytes; SHA256 '+actual);

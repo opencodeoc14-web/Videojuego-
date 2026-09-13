@@ -1,0 +1,111 @@
+function addBridge(){if(!platforms.some(p=>p.bridge))platforms.push({x:2960,y:453,w:160,h:23,solid:false,bridge:true});}
+function clearInput(){held.clear();touchHeld.clear();player.jumpBuffer=0;document.querySelectorAll('.control.pressed').forEach(b=>b.classList.remove('pressed'));}
+function isHeld(...codes){return codes.some(c=>held.has(c)||touchHeld.has(c));}
+function jumpPressed(){if(mode!=='playing')return;player.jumpBuffer=.15;}
+function jumpReleased(){if(player.vy<-285)player.vy=-285;}
+function doJump(){
+ const ground=player.grounded||player.coyote>0;
+ if(!ground&&player.jumps>=2)return false;
+ if(ground){player.jumps=1;player.vy=-685;sound('jump');dust(player.x+17,player.y+48,7);}
+ else{player.jumps=2;player.vy=-625;sound('double');burst(player.x+17,player.y+43,12,'#d4efad',170,'ring');}
+ player.grounded=false;player.coyote=0;player.jumpBuffer=0;return true;
+}
+function spinPressed(){if(mode!=='playing'||player.spinCooldown>0)return;player.spin=.34;player.spinCooldown=.46;sound('spin');}
+function throwPressed(){
+ if(mode!=='playing'||buddy.mode!=='follow'||buddy.cooldown>0)return;
+ buddy.mode='out';buddy.x=player.x+17;buddy.y=player.y+17;buddy.vx=player.facing*680;buddy.vy=-18;buddy.flight=0;buddy.cooldown=1.1;sound('throw');
+}
+function burst(x,y,n,color='#ffd166',power=230,kind='chip'){
+ const limit=reduced?100:220;
+ for(let i=0;i<n&&particles.length<limit;i++){const a=Math.random()*TAU,s=power*(.25+Math.random()*.75);particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-60,life:.4+Math.random()*.35,max:.75,r:2+Math.random()*4,color,kind,rot:Math.random()*TAU});}
+}
+function dust(x,y,n=5){burst(x,y,n,'#d5dcb0',110,'dust');}
+function scatterSparks(x,y,n=4){for(let i=0;i<n;i++)sparks.push({x,y,vx:(Math.random()-.5)*220,vy:-180-Math.random()*130,life:7,phase:i});}
+function breakCrate(c){if(c.broken)return;c.broken=true;boxesBroken++;sound('break');burst(c.x+21,c.y+24,12,'#dca365',240);scatterSparks(c.x+21,c.y+10,4);if(c.heal){player.hp=3;toast('Caja de auxilio: salud restaurada.','♥',2.3);burst(c.x+20,c.y,8,'#b1efc5',150);}nextAutosave=.5;}
+function killEnemy(e){if(!e.alive)return;e.alive=false;kills++;sound('break');burst(e.x+19,e.y+16,15,'#eb937d',240);scatterSparks(e.x+19,e.y+10,3);nextAutosave=.5;}
+function respawn(fell=false){
+ deaths++;player.hp=3;player.x=player.spawnX;player.y=player.spawnY;player.vx=0;player.vy=0;player.jumps=0;player.coyote=0;player.jumpBuffer=0;player.invincible=1.65;player.spin=0;
+ buddy.x=player.x-50;buddy.y=player.y+12;buddy.mode='follow';buddy.cooldown=0;
+ waves=[];if(boss.active&&!boss.dead){boss.active=false;boss.hp=5;boss.phase='idle';boss.timer=1.25;boss.hurt=0;}
+ camX=clamp(player.x-viewW*.3,0,Math.max(0,WORLD-viewW));shake=0;
+ toast(fell?'¡Otro intento! Conservas lo que recogiste.':'Equipo reparado. Vuelves a tu última baliza.','↻',2.7);sound('hit');saveProgress();updateHUD(true);
+}
+function hurt(fromX){
+ if(player.invincible>0)return;
+ player.hp--;player.invincible=1.4;shake=reduced?0:6;player.vx=player.x<fromX?-225:225;player.vy=-300;sound('hit');burst(player.x+17,player.y+22,8,'#fca48c',180);
+ if(player.hp<=0)respawn();updateHUD(true);
+}
+function hitBoss(){
+ if(boss.dead||!boss.active||boss.phase!=='vulnerable'||boss.hurt>0)return false;
+ boss.hp--;boss.hurt=.7;boss.flash=.25;shake=reduced?0:7;burst(boss.x+47,boss.y+36,22,'#ffd166',280);sound('hit');
+ if(boss.hp<=0){boss.dead=true;boss.phase='dead';waves=[];burst(boss.x+47,boss.y+25,44,'#a3efc0',360);scatterSparks(boss.x+47,boss.y+12,12);toast('¡Centinela desactivado! El portal está al este.','✦',4);sound('victory');saveProgress();}
+ else{boss.phase='recover';boss.timer=.8;toast('¡Impacto! Aléjate antes de la siguiente onda.','↗',1.7);}
+ return true;
+}
+function updateBoss(dt){
+ boss.hurt=Math.max(0,boss.hurt-dt);boss.flash=Math.max(0,boss.flash-dt);
+ if(!boss.active&&!boss.dead&&player.x>5520){boss.active=true;boss.phase='windup';boss.timer=1.25;toast('Salta la onda y golpea cuando el escudo se apague.','!',4);}
+ if(!boss.active||boss.dead)return;
+ boss.timer-=dt;
+ if(boss.timer<=0){
+  if(boss.phase==='windup'){
+   boss.phase='vulnerable';boss.timer=2.25;shake=reduced?0:8;sound('slam');
+   waves.push({x:boss.x-22,y:FLOOR-19,w:29,h:19,vx:-270,life:3.2,hit:false},{x:boss.x+boss.w,y:FLOOR-19,w:29,h:19,vx:270,life:2.5,hit:false});dust(boss.x+47,FLOOR,18);
+  }else if(boss.phase==='vulnerable'||boss.phase==='recover'){boss.phase='windup';boss.timer=boss.hp<=2?.95:1.25;}
+ }
+}
+function updateBuddy(dt){
+ buddy.phase+=dt*5;buddy.cooldown=Math.max(0,buddy.cooldown-dt);buddy.flight+=dt;
+ if(buddy.mode==='follow'){
+  const tx=player.x+17-player.facing*52,ty=player.y+18+Math.sin(buddy.phase)*5;
+  buddy.x=lerp(buddy.x,tx,1-Math.exp(-10*dt));buddy.y=lerp(buddy.y,ty,1-Math.exp(-10*dt));
+ }else if(buddy.mode==='out'){
+  buddy.x+=buddy.vx*dt;buddy.y+=buddy.vy*dt;
+  if(buddy.flight>.48)buddy.mode='return';
+ }else{
+  const target={x:player.x+17,y:player.y+18};const dx=target.x-buddy.x,dy=target.y-buddy.y,d=Math.hypot(dx,dy);
+  if(d<28){buddy.mode='follow';buddy.flight=0;}
+  else{buddy.x+=dx/d*Math.min(d,920*dt);buddy.y+=dy/d*Math.min(d,920*dt);}
+ }
+ if(buddy.mode!=='follow'){
+  buddy.trail-=dt;if(buddy.trail<=0){buddy.trail=.035;burst(buddy.x,buddy.y,1,'#a7e8e3',30,'dust');}
+  const b={x:buddy.x-18,y:buddy.y-17,w:36,h:34};
+  for(const c of crates)if(!c.broken&&hit(b,c))breakCrate(c);
+  for(const e of enemies)if(e.alive&&hit(b,e))killEnemy(e);
+  if(!relay&&distance(buddy,relayOrb)<43){relay=true;addBridge();sound('relay');burst(relayOrb.x,relayOrb.y,30,'#aff5d2',270);toast('¡Vox lo logró! Baliza encendida y puente desplegado.','↗',4);saveProgress();}
+  if(hit(b,boss))hitBoss();
+ }
+}
+function update(dt){
+ if(mode!=='playing')return;
+ simulationTime+=dt;elapsed+=dt;toastLeft=Math.max(0,toastLeft-dt);if(!toastLeft)$('toast').classList.remove('show');
+ player.invincible=Math.max(0,player.invincible-dt);player.spin=Math.max(0,player.spin-dt);player.spinCooldown=Math.max(0,player.spinCooldown-dt);player.jumpBuffer=Math.max(0,player.jumpBuffer-dt);player.coyote=Math.max(0,player.coyote-dt);
+ let axis=(isHeld('ArrowRight','KeyD','right')?1:0)-(isHeld('ArrowLeft','KeyA','left')?1:0);
+ const target=axis*318,accel=player.grounded?2600:1650;
+ if(player.vx<target)player.vx=Math.min(target,player.vx+accel*dt);else if(player.vx>target)player.vx=Math.max(target,player.vx-accel*dt);
+ if(axis)player.facing=axis;
+ if(player.jumpBuffer>0)doJump();
+ if(player.grounded)player.runPhase+=Math.abs(player.vx)*dt*.052;
+ const prev={x:player.x,y:player.y};
+ player.x+=player.vx*dt;player.x=clamp(player.x,0,WORLD-player.w);
+ for(const p of platforms){if(!p.solid)continue;if(hit(player,p)&&prev.y+player.h>p.y+3){if(player.vx>0&&prev.x+player.w<=p.x+4)player.x=p.x-player.w;else if(player.vx<0&&prev.x>=p.x+p.w-4)player.x=p.x+p.w;}}
+ player.vy=Math.min(980,player.vy+GRAVITY*dt);player.y+=player.vy*dt;const wasGrounded=player.grounded;player.grounded=false;
+ // Only the top face of floating platforms is solid; ground also has side walls.
+ for(const p of platforms){if(player.x+player.w-3>p.x&&player.x+3<p.x+p.w&&prev.y+player.h<=p.y+3&&player.y+player.h>=p.y&&player.vy>=0){player.y=p.y-player.h;player.vy=0;player.grounded=true;player.jumps=0;player.coyote=.12;}}
+ if(!wasGrounded&&player.grounded){dust(player.x+17,player.y+47,5);if(player.jumpBuffer>0)doJump();}
+ if(!player.grounded&&wasGrounded)player.coyote=.12;
+ if(player.jumps===0&&!player.grounded&&player.coyote<=0)player.jumps=1;
+ if(player.grounded&&Math.abs(player.vx)>160){walkParticle-=dt;if(walkParticle<=0){walkParticle=.12;dust(player.x+17,player.y+48,1);}}
+ if(player.y>775){respawn(true);return;}
+ updateBuddy(dt);
+ const attack=player.spin>0?{x:player.x-22,y:player.y-5,w:player.w+44,h:player.h+11}:null;
+ for(const c of crates){if(c.broken)continue;if(attack&&hit(attack,c)){breakCrate(c);continue;}
+  if(hit(player,c)){
+   if(player.vy>0&&prev.y+player.h<=c.y+10){breakCrate(c);player.vy=-390;player.jumps=1;}
+   else if(player.vy<0&&prev.y>=c.y+c.h-6){breakCrate(c);player.vy=100;}
+   else if(prev.x+player.w<=c.x+6){player.x=c.x-player.w;player.vx=0;}
+   else if(prev.x>=c.x+c.w-6){player.x=c.x+c.w;player.vx=0;}
+  }
+ }
+ for(const g of gears)if(!g.taken&&hit(player,{x:g.x-22,y:g.y-22,w:44,h:44})){g.taken=true;sound('gear');burst(g.x,g.y,24,'#ffdc7a',230);toast(gears.every(a=>a.taken)?'¡Los seis engranajes! Ya puedes reparar el portal.':`Engranaje ${gears.filter(a=>a.taken).length} / 6. ¡Buen ojo!`,'⚙',2.4);saveProgress();}
+ for(let i=0;i<checkpoints.length;i++){const c=checkpoints[i];if(!c.active&&hit(player,{x:c.x-24,y:c.y-95,w:62,h:95})){c.active=true;lastCheckpoint=i+1;player.spawnX=c.x+45;player.spawnY=FLOOR-player.h;player.hp=3;sound('checkpoint');burst(c.x,c.y-66,23,'#b5f4cb',230);toast(`Baliza ${i+1} activada. Salud y progreso guardados.`,'⚑',3);saveProgress();}}

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101f21">
+<meta name="description" content="Chaos Twins: un plataformas original de exploración, saltos y cooperación. Juega con teclado o pantalla táctil.">
+<title>Chaos Twins · Isla del núcleo</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <header class="app-header">
+    <a class="brand" href="#" aria-label="Chaos Twins, inicio"><span class="brand-mark">c<span>t</span><i></i></span><span>CHAOS <b>TWINS</b><small>UN POCO DE CAOS. MUCHO EQUIPO.</small></span></a>
+    <div class="header-right"><span class="version"><i></i> DEMO 02</span><button id="helpButton" class="icon-button" aria-label="Cómo jugar" title="Cómo jugar">?</button><button id="soundButton" class="icon-button" aria-label="Silenciar sonido" title="Sonido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Zm4 3a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg></button><button id="fullscreenButton" class="icon-button" aria-label="Pantalla completa" title="Pantalla completa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg></button></div>
+  </header>
+  <main>
+    <div class="chapter-row"><span><span class="chapter-n">01</span> ISLA DEL NÚCLEO</span><span class="chapter-detail">PLATAFORMAS · EXPLORACIÓN · CAOS</span></div>
+    <section id="stage" class="stage" aria-label="Juego Chaos Twins">
+      <canvas id="game" tabindex="0" aria-label="Escenario. Mover: flechas o A y D. Saltar: espacio. Giro: X. Lanzar a Vox: C."></canvas>
+      <div class="vignette"></div>
+      <div id="hud" class="hud" hidden>
+        <div class="hud-left"><div class="hud-item health"><span class="hud-avatar">R</span><span id="hearts" aria-label="3 vidas"></span></div><div class="hud-item gear-count"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 2-1 3-3 1-3-1-2 4 3 2v3l-2 2 2 4 3-1 3 2 1 2h4l1-3 3-1 3 1 2-4-3-2v-3l2-2-2-4-3 1-3-2-1-2Z" transform="translate(0 -1) scale(.95)"/><circle cx="11.5" cy="11" r="3.5"/></svg><b id="gearCount">0</b><span>/ 6</span></div><div class="hud-item sparks"><span>✦</span><b id="sparkCount">0</b></div></div>
+        <div class="hud-right"><span id="timer" class="timer">00:00</span><button id="pauseButton" class="icon-button" aria-label="Pausar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg></button></div>
+      </div>
+      <div id="objective" class="objective" hidden><span class="tiny-dot"></span><span id="objectiveText">Encuentra los 6 engranajes</span></div>
+      <div id="bossHud" class="boss-hud" hidden><div><span>CENTINELA DEL NÚCLEO</span><span id="bossHint">Salta la onda. Ataca cuando se apague el escudo.</span></div><div class="boss-track"><i id="bossFill"></i></div></div>
+      <div id="toast" class="toast" aria-live="polite"><span id="toastIcon">✦</span><span id="toastText"></span></div>
+      <div id="titleScreen" class="title-screen">
+        <div class="title-copy"><div class="eyebrow"><span></span> DOS HÉROES. UN PLAN TERRIBLE.</div><h1>EL CAOS<br>VIENE <em>DE A DOS.</em></h1><p>Una isla flotante. Un robot con ideas peligrosas.<br class="desktop-br"> Y seis engranajes para volver a casa.</p><div class="title-actions"><button id="playButton" class="primary-button">Jugar ahora <span>↗</span></button><button id="continueButton" class="secondary-button" hidden>Continuar <span>→</span></button></div><div class="title-note"><span class="key-mini">↔</span><span>Teclado o controles táctiles · Sin descargas adicionales</span></div></div>
+        <div class="scene-caption"><i></i> RIKO + VOX <span>COMPAÑEROS A LA FUERZA</span></div>
+      </div>
+      <div id="modal" class="modal" hidden>
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
+          <div id="modalEyebrow" class="eyebrow">RESPIRA. EL CAOS PUEDE ESPERAR.</div><h2 id="modalTitle">En pausa</h2><div id="modalBody"></div><div id="modalActions" class="modal-actions"></div>
+        </div>
+      </div>
+      <div class="scene-bottom" id="sceneBottom"><span class="zone-tag" id="zoneTag">EL BOSQUE SUSPENDIDO</span><div class="progress-track"><i id="progressFill"></i></div><span id="progressText">00%</span></div>
+    </section>
+    <div id="touchControls" class="touch-controls" aria-label="Controles táctiles">
+      <div class="direction-pad"><button id="leftButton" class="control direction" aria-label="Izquierda"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><button id="rightButton" class="control direction" aria-label="Derecha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div>
+      <div class="action-pad"><button id="throwButton" class="control throw" aria-label="Lanzar a Vox"><span>↗</span><small>VOX</small></button><button id="spinButton" class="control spin" aria-label="Ataque giratorio"><span>↻</span><small>GIRO</small></button><button id="jumpButton" class="control jump" aria-label="Saltar o doble salto"><span>↑</span><small>SALTO</small></button></div>
+    </div>
+    <div class="under-stage"><div class="keyboard-help"><span><kbd>A</kbd><kbd>D</kbd> Mover</span><span><kbd>ESPACIO</kbd> Doble salto</span><span><kbd>X</kbd> Giro</span><span><kbd>C</kbd> Lanzar a Vox</span><span><kbd>ESC</kbd> Pausa</span></div><span id="saveState" class="save-state"><i></i> Progreso guardado en este dispositivo</span></div>
+    <div class="game-notes"><p><span class="note-number">01 /</span> <strong>Explora sin prisa.</strong> Busca los caminos altos y rompe las cajas.</p><p><span class="note-number">02 /</span> <strong>No vas solo.</strong> Lanza a Vox para activar la baliza y abrir el puente.</p><p><span class="note-number">03 /</span> <strong>Lee el ritmo.</strong> Esquiva al centinela y golpea cuando esté vulnerable.</p></div>
+  </main>
+  <footer><span>HECHO PARA PERDERSE UN RATO.</span><span>Personajes y arte originales · Demo 2D</span></footer>
+</div>
+<noscript><p class="noscript">Activa JavaScript en el navegador para jugar a Chaos Twins.</p></noscript>
+<script src="game.js"></script>
+</body>
+</html>
