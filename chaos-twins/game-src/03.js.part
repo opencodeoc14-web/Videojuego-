@@ -20,26 +20,53 @@
  for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=(p.kind==='dust'?100:600)*dt;p.rot+=dt*4;if(p.life<=0)particles.splice(i,1);}
  if(hit(player,gate)){
   if(gears.every(g=>g.taken)&&relay&&boss.dead){win();return;}
-  if(!tutorials.has('portal')||toastLeft<=0){tutorials.add('portal');toast(!gears.every(g=>g.taken)?'Aún faltan engranajes. Explora los caminos altos.':!relay?'Vox debe encender la baliza del puente. Regresa a las ruinas.':'Desactiva al centinela para liberar el portal.','!',3.5);}
+  if(!tutorials.has('portal')||toastLeft<=0){tutorials.add('portal');toast(!gears.every(g=>g.taken)?'Aún faltan engranajes. Explora las rutas altas y los territorios del este.':!relay?'Vox debe encender la baliza del puente. Regresa a las ruinas.':'Desactiva al centinela para liberar el portal.','!',3.5);}
  }
- const tips=[{key:'boxes',x:270,text:'X / GIRO rompe las cajas. También puedes caer sobre ellas.'},{key:'jump',x:530,text:'Pulsa SALTO dos veces para alcanzar las plataformas altas.'},{key:'vox',x:2220,text:'Lanza a Vox (C / VOX) hacia la baliza azul de las ruinas.'},{key:'last',x:5200,text:'El centinela deja su escudo abierto después de cada onda.'}];
+ const tips=[
+  {key:'boxes',x:270,text:'X / GIRO rompe las cajas. También puedes caer sobre ellas.'},
+  {key:'jump',x:530,text:'Pulsa SALTO dos veces para alcanzar las plataformas altas.'},
+  {key:'vox',x:2220,text:'Lanza a Vox (C / VOX) hacia la baliza azul de las ruinas.'},
+  {key:'last',x:5200,text:'El centinela deja su escudo abierto después de cada onda.'},
+  {key:'beyond',x:6820,text:'El camino continúa tras el centinela. Hay regiones enteras al este.'},
+  {key:'garden',x:9300,text:'Busca también arriba: algunos engranajes están lejos del suelo.'},
+  {key:'portalRoad',x:11550,text:'Último tramo. Las ruinas del portal están más allá de estas terrazas.'}
+ ];
  for(const tip of tips)if(player.x>tip.x&&!tutorials.has(tip.key)){tutorials.add(tip.key);if(toastLeft<.4)toast(tip.text,'i',3.6);}
- const targetCam=clamp(player.x+player.w/2-viewW*.34+player.vx*.16,0,Math.max(0,WORLD-viewW));camX=lerp(camX,targetCam,1-Math.exp(-4.5*dt));shake*=Math.exp(-11*dt);
+ // Short cinematic pans reveal important landmarks without taking control away.
+ if(player.x>6680&&!tutorials.has('cameraVista')){tutorials.add('cameraVista');focusCamera(7420,245,1.25,.93);}
+ if(boss.active&&!tutorials.has('bossCamera')){tutorials.add('bossCamera');focusCamera(boss.x+47,boss.y+20,1.05,.94);}
+ if(player.x>12340&&!tutorials.has('gateCamera')){tutorials.add('gateCamera');focusCamera(gate.x+51,gate.y+70,1.15,.93);}
+ // Dynamic camera: velocity look-ahead, vertical tracking, speed zoom and optional look-down.
+ let targetZoom=Math.abs(player.vx)>250?.965:1;
+ if(!player.grounded)targetZoom=.975;
+ if(boss.active&&!boss.dead&&Math.abs(player.x-boss.x)<950)targetZoom=.94;
+ let effectiveW=viewW/targetZoom;
+ const lookX=player.facing*(55+Math.min(120,Math.abs(player.vx)*.22));
+ let targetCam=clamp(player.x+17-effectiveW*.5+lookX,0,Math.max(0,WORLD-effectiveW));
+ let targetCamY=clamp((player.y-350)*.18+player.vy*.012+(isHeld('ArrowDown','KeyS')?35:0),-55,35);
+ if(camFocus){
+  camFocus.time-=dt;targetZoom=camFocus.zoom;effectiveW=viewW/targetZoom;
+  targetCam=clamp(camFocus.x-effectiveW*.5,0,Math.max(0,WORLD-effectiveW));targetCamY=clamp(camFocus.y-viewH*.56,-70,70);
+  if(camFocus.time<=0)camFocus=null;
+ }
+ camZoom=lerp(camZoom,targetZoom,1-Math.exp(-3.4*dt));
+ camX=lerp(camX,targetCam,1-Math.exp(-4.2*dt));camY=lerp(camY,targetCamY,1-Math.exp(-3.8*dt));shake*=Math.exp(-11*dt);
  if(nextAutosave>0){nextAutosave-=dt;if(nextAutosave<=0)saveProgress();}
  updateHUD();
 }
+function focusCamera(x,y,seconds=1.15,zoom=.94){if(reduced)return;camFocus={x,y,time:Math.max(.2,seconds),zoom:clamp(zoom,.90,1.02)};}
 let hudCache='';
 function updateHUD(force=false){
  const count=gears.filter(g=>g.taken).length,key=`${count}|${player.hp}|${sparksCount}|${Math.floor(elapsed)}|${boss.hp}|${boss.active}|${boss.dead}|${relay}|${mode}`;
  if(force||key!==hudCache){
   hudCache=key;$('gearCount').textContent=count;$('sparkCount').textContent=sparksCount;$('timer').textContent=formatTime(elapsed);
   $('hearts').innerHTML=[0,1,2].map(i=>`<svg class="heart ${i>=player.hp?'empty':''}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21S2 15 2 8a5.5 5.5 0 0 1 10-3 5.5 5.5 0 0 1 10 3c0 7-10 13-10 13Z"/></svg>`).join('');$('hearts').setAttribute('aria-label',`${player.hp} de 3 vidas`);
-  $('objectiveText').textContent=count<6?`Encuentra los engranajes · ${count}/6`:!relay?'Activa la baliza con Vox':!boss.dead?'Desactiva al centinela':'¡El portal está abierto!';
+  $('objectiveText').textContent=count<6?`Encuentra los engranajes · ${count}/6`:!relay?'Activa la baliza con Vox':!boss.dead?'Desactiva al centinela':'Cruza la isla hasta el portal';
   $('bossHud').hidden=!boss.active||boss.dead||mode==='title';$('bossFill').style.width=boss.hp/5*100+'%';
  }
  $('bossHint').textContent=boss.phase==='vulnerable'?'¡Escudo apagado! Gira o lanza a Vox.':boss.phase==='recover'?'Buen golpe. Prepárate para la siguiente onda.':'Salta la onda. Espera a que se apague el escudo.';
  progress=clamp(player.x/(gate.x)*100,0,100);$('progressFill').style.width=progress+'%';$('progressText').textContent=Math.floor(progress).toString().padStart(2,'0')+'%';
- $('zoneTag').textContent=player.x<2000?'EL BOSQUE SUSPENDIDO':player.x<4300?'RUINAS DEL RELÁMPAGO':'EL CORAZÓN DE LA ISLA';
+ $('zoneTag').textContent=player.x<2000?'EL BOSQUE SUSPENDIDO':player.x<4300?'RUINAS DEL RELÁMPAGO':player.x<6750?'EL CORAZÓN DE LA ISLA':player.x<8200?'ACANTILADOS DEL VIENTO':player.x<9600?'JARDINES HUNDIDOS':player.x<11000?'OBSERVATORIO ROTO':'CAMINO DEL PORTAL';
  $('throwButton').style.opacity=buddy.mode!=='follow'||buddy.cooldown>0?'.52':'1';
 }
 function formatTime(seconds){const n=Math.max(0,Math.floor(seconds));return `${Math.floor(n/60).toString().padStart(2,'0')}:${(n%60).toString().padStart(2,'0')}`;}
@@ -53,17 +80,17 @@ function pause(){if(mode!=='playing')return;mode='paused';saveProgress();showMod
 function confirmRestart(){showModal('¿Empezar de nuevo?','<p>Se reiniciará esta partida. Tu mejor marca seguirá guardada.</p>',[{label:'Empezar de nuevo',action:()=>startGame(false)},{label:'Volver',action:()=>{mode='playing';pause();}}],'UN NUEVO INTENTO');}
 function showHelp(){
  previousMode=mode;if(mode==='playing'){mode='paused';saveProgress();}clearInput();
- showModal('Un buen equipo.',`<div class="help-grid"><span><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></span><span>Mover a Riko.</span><span><kbd>ESPACIO</kbd> / <kbd>↑</kbd></span><span>Saltar. Pulsa otra vez en el aire.</span><span><kbd>X</kbd> / <kbd>J</kbd></span><span>Girar, romper cajas y atacar.</span><span><kbd>C</kbd> / <kbd>K</kbd></span><span>Lanzar a Vox. Siempre vuelve.</span><span><kbd>ESC</kbd> / <kbd>P</kbd></span><span>Pausar y reanudar.</span></div><p>Recoge los <strong>6 engranajes</strong>, activa la baliza azul con Vox y vence al centinela. Las balizas verdes curan y guardan tu posición. En móvil, usa los botones de abajo; en horizontal verás más camino.</p>`,[{label:'¡Entendido! →',action:()=>{if(previousMode==='title'){$('modal').hidden=true;mode='title';$('playButton').focus({preventScroll:true});}else if(previousMode==='won'){$('modal').hidden=true;showWin();}else resume();}}],'ASÍ SE JUEGA');
+ showModal('Un buen equipo.',`<div class="help-grid"><span><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></span><span>Mover a Riko.</span><span><kbd>ESPACIO</kbd> / <kbd>↑</kbd></span><span>Saltar. Pulsa otra vez en el aire.</span><span><kbd>X</kbd> / <kbd>J</kbd></span><span>Girar, romper cajas y atacar.</span><span><kbd>C</kbd> / <kbd>K</kbd></span><span>Lanzar a Vox. Siempre vuelve.</span><span><kbd>↓</kbd> / <kbd>S</kbd></span><span>Mirar hacia abajo con la cámara.</span><span><kbd>ESC</kbd> / <kbd>P</kbd></span><span>Pausar y reanudar.</span></div><p>Recoge los <strong>6 engranajes</strong>, activa la baliza azul con Vox, vence al centinela y sigue explorando: ahora la isla continúa mucho más allá del combate. Las balizas verdes curan y guardan tu posición. La cámara se adelanta al correr, acompaña los saltos y se abre para mostrar zonas importantes.</p>`,[{label:'¡Entendido! →',action:()=>{if(previousMode==='title'){$('modal').hidden=true;mode='title';$('playButton').focus({preventScroll:true});}else if(previousMode==='won'){$('modal').hidden=true;showWin();}else resume();}}],'ASÍ SE JUEGA');
 }
 let winData=null;
 function win(){
  mode='won';clearInput();$('bossHud').hidden=true;$('toast').classList.remove('show');sound('victory');
- const score=Math.max(100,6*500+sparksCount*25+kills*100+boxesBroken*50-deaths*125+Math.max(0,1800-Math.floor(elapsed)*3));
+ const score=Math.max(100,6*500+sparksCount*25+kills*100+boxesBroken*50-deaths*125+Math.max(0,2400-Math.floor(elapsed)*3));
  const prev=readStore(RECORD_KEY,null),best=!prev||!Number.isFinite(prev.score)||score>prev.score;
  winData={score,best,time:formatTime(elapsed),deaths,sparks:sparksCount};
  if(best)store(RECORD_KEY,{score,time:elapsed,date:new Date().toISOString()});removeStore(SAVE_KEY);refreshContinue();showWin();
 }
-function showWin(){const w=winData||{score:0,best:false,time:formatTime(elapsed),deaths,sparks:sparksCount};showModal('El caos tiene su encanto.',`<p>Los seis engranajes, una baliza encendida y un centinela fuera de servicio. Nada mal para un plan improvisado.</p><div class="win-stats"><div><strong>${w.score.toLocaleString('es')}</strong><small>PUNTOS</small></div><div><strong>${w.time}</strong><small>TIEMPO</small></div><div><strong>${w.deaths}</strong><small>REINTENTOS</small></div></div><p>${w.best?'✦ Nueva mejor marca guardada en este dispositivo.':'¡Portal reparado! Tu mejor marca sigue guardada.'}</p>`,[{label:'Volver a jugar ↗',action:()=>startGame(false)},{label:'Ir al inicio',action:goTitle}],'¡ISLA COMPLETADA! · 6 / 6 ENGRANAJES');}
+function showWin(){const w=winData||{score:0,best:false,time:formatTime(elapsed),deaths,sparks:sparksCount};showModal('El caos tiene su encanto.',`<p>Atravesaste la isla completa: bosque, ruinas, acantilados, jardines, observatorio y el camino del portal. Nada mal para un plan improvisado.</p><div class="win-stats"><div><strong>${w.score.toLocaleString('es')}</strong><small>PUNTOS</small></div><div><strong>${w.time}</strong><small>TIEMPO</small></div><div><strong>${w.deaths}</strong><small>REINTENTOS</small></div></div><p>${w.best?'✦ Nueva mejor marca guardada en este dispositivo.':'¡Portal reparado! Tu mejor marca sigue guardada.'}</p>`,[{label:'Volver a jugar ↗',action:()=>startGame(false)},{label:'Ir al inicio',action:goTitle}],'¡ISLA COMPLETADA! · 6 / 6 ENGRANAJES');}
 function goTitle(){resetWorld();mode='title';$('hud').hidden=true;$('objective').hidden=true;$('bossHud').hidden=true;$('modal').hidden=true;$('titleScreen').hidden=false;$('toast').classList.remove('show');refreshContinue();}
 // Drawing helpers: all graphics are original vector shapes rendered locally.
 function rr(x,y,w,h,r,fill,stroke=null,lw=1){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}}

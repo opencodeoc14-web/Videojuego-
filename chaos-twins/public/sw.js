@@ -1,5 +1,5 @@
 'use strict';
-const CACHE = 'chaos-twins-v2-railway-2026-09-13';
+const CACHE = 'chaos-twins-v3-camera-world-2026-09-13';
 const ASSETS = ['./', './index.html', './styles.css', './game.js', './icon.svg', './icon-192.png', './icon-512.png', './manifest.webmanifest'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -10,7 +10,6 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
-  // Pages use network first so an updated build replaces the old game.
   if (request.mode === 'navigate') {
     event.respondWith(fetch(request).then(response => {
       if (response.ok) { const copy = response.clone(); caches.open(CACHE).then(cache => cache.put('./index.html', copy)).catch(() => {}); }
@@ -18,5 +17,9 @@ self.addEventListener('fetch', event => {
     }).catch(() => caches.match('./index.html')));
     return;
   }
-  event.respondWith(caches.match(request).then(cached => cached || fetch(request)));
+  // Assets use network first in v3 so camera/world updates reach installed PWAs immediately.
+  event.respondWith(fetch(request).then(response => {
+    if (response.ok) { const copy=response.clone(); caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(()=>{}); }
+    return response;
+  }).catch(()=>caches.match(request)));
 });
