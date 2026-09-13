@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const root = __dirname;
 const parts = ['01','02','03','04','05','06'].map(n => fs.readFileSync(path.join(root,'game-src',n+'.js.part')));
 const game = Buffer.concat(parts);
-const expected = '722d92995cd761fd5ab21c8eaae8206248d2c7fe99e843d04e73697afed35f7f';
+const expected = 'f882e439d5b648940aa351f8357f53fcb434a08b56c623affccaa440512ac224';
 const actual = crypto.createHash('sha256').update(game).digest('hex');
 if (actual !== expected) throw new Error('Game source integrity check failed: '+actual);
 fs.mkdirSync(path.join(root,'public'),{recursive:true});
